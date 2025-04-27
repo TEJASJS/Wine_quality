@@ -109,38 +109,46 @@ except:
     # Create mock prediction function if model is not found
     st.sidebar.warning("Using simulation mode - model not found")
     model_loaded = False
+
+def calculate_quality_score(input_data):
+    """Calculate wine quality score on a scale of 0-10"""
+    # Base score from 0-10
+    score = 5.0  # Start at middle
     
-    def mock_predict(input_data):
-        # Create a more realistic prediction based on known wine quality factors
-        row = input_data.iloc[0]
-        
-        # Real wine quality factors - higher alcohol and lower volatile acidity correlate with better wine
-        score = 0
-        
-        # Alcohol has positive correlation with quality
-        if row['alcohol'] > 12: score += 3
-        elif row['alcohol'] > 10.5: score += 2
-        else: score += 1
-        
-        # Volatile acidity has negative correlation with quality
-        if row['volatile acidity'] < 0.4: score += 3
-        elif row['volatile acidity'] < 0.7: score += 2
-        else: score += 1
-        
-        # Sulfates has positive correlation
-        if row['sulphates'] > 0.8: score += 2
-        elif row['sulphates'] > 0.5: score += 1
-        
-        # Citric acid generally positive
-        if row['citric acid'] > 0.5: score += 1
-        
-        # pH balance matters
-        if 3.0 <= row['pH'] <= 3.4: score += 1
-        
-        # Convert score to quality label
-        if score >= 8: return 'good'
-        elif score >= 5: return 'average'
-        else: return 'poor'
+    # Key positive factors
+    score += (input_data['alcohol'].values[0] - 10) * 0.5  # Alcohol bonus
+    score -= (input_data['volatile acidity'].values[0] - 0.5) * 2  # Acidity penalty
+    score += (input_data['sulphates'].values[0] - 0.5) * 1.5  # Sulphates bonus
+    
+    # Additional factors
+    if input_data['citric acid'].values[0] > 0.3:
+        score += 0.5
+    if 3.0 <= input_data['pH'].values[0] <= 3.4:
+        score += 0.5
+    
+    # Type-specific adjustments
+    if input_data['type'].values[0] == 0:  # Red wine
+        if input_data['total sulfur dioxide'].values[0] < 50:
+            score += 0.5
+    else:  # White wine
+        if input_data['total sulfur dioxide'].values[0] < 150:
+            score += 0.5
+    
+    # Ensure score is within 0-10 range
+    return max(0, min(10, score))
+
+def predict_quality(input_data):
+    """Predict wine quality category and score"""
+    # Calculate quality score
+    quality_score = calculate_quality_score(input_data)
+    
+    # Apply new classification thresholds
+    if quality_score < 5:
+        return 'poor', quality_score
+    elif quality_score <= 7:
+        return 'average', quality_score
+    else:
+        return 'good', quality_score
 
 # Input section with better organization and tooltips
 def user_input_features():
@@ -281,20 +289,12 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         import time
         time.sleep(1)  # Simulate processing
         
-        # Get prediction 
-        if model_loaded:
-            # Scale input and predict
-            scaled_input = scaler.transform(input_df)
-            prediction = model.predict(scaled_input)[0]
-        else:
-            # Use mock prediction
-            prediction = mock_predict(input_df)
+        # Get prediction using the new function
+        prediction, quality_out_of_10 = predict_quality(input_df)
     
-    # Convert prediction to rating and description
-    if prediction == 'good':
+    # Convert prediction to status and description based on NEW ranges
+    if prediction == 'good':  # > 7
         quality_status = "🟢 Excellent Quality"
-        quality_out_of_10 = 8.5 + (input_df['alcohol'].values[0] - 10) / 5  # Slightly randomize score
-        quality_out_of_10 = max(8.0, min(9.5, quality_out_of_10))  # Keep between 8-9.5
         
         description = """
         This wine shows exceptional balance with vibrant aromatics and complex flavors. 
@@ -302,10 +302,8 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         rich foods and special occasions.
         """
         
-    elif prediction == 'average':
-        quality_status = "🟡 Good Quality"
-        quality_out_of_10 = 6.0 + (input_df['alcohol'].values[0] - 10) / 5  # Slightly randomize
-        quality_out_of_10 = max(5.5, min(7.5, quality_out_of_10))  # Keep between 5.5-7.5
+    elif prediction == 'average':  # 5-7
+        quality_status = "🟡 Average Quality"
         
         description = """
         A pleasant, approachable wine with good balance. While not extraordinary, 
@@ -313,10 +311,8 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         enjoyment and casual dining.
         """
         
-    else:  # poor
-        quality_status = "🔴 Below Average"
-        quality_out_of_10 = 3.0 + (input_df['alcohol'].values[0] - 9) / 5  # Slightly randomize
-        quality_out_of_10 = max(2.5, min(5.0, quality_out_of_10))  # Keep between 2.5-5
+    else:  # poor < 5
+        quality_status = "🔴 Poor Quality"
         
         description = """
         This wine shows chemical imbalances that affect its taste profile. 
@@ -334,6 +330,12 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         <h3>{quality_status}</h3>
         <h4 style="font-size: 2rem;">⭐ Quality Score: {quality_out_of_10}/10</h4>
         <p style="font-style: italic;">{description}</p>
+        <p>According to our new quality scale:</p>
+        <ul>
+            <li><strong>Poor:</strong> Score less than 5</li>
+            <li><strong>Average:</strong> Score between 5 and 7</li>
+            <li><strong>Excellent:</strong> Score greater than 7</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
     
