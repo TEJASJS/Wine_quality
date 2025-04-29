@@ -53,14 +53,14 @@ st.markdown(animated_background, unsafe_allow_html=True)
 # Page title with animation
 st.markdown("""
 <div style="text-align: center;">
-    <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍷 Wine Quality Analyzer</h1>
+    <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍷 WineWise</h1>
     <p style="font-size: 1.3rem; font-style: italic; margin-top: 0;">Uncorking the Science of Fine Wine</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar with richer content
 st.sidebar.markdown("""
-# 🍇 Wine Science Explorer
+# 🍇 Wine Quality Analyzer
 **Discover what makes a great wine!**
 
 This app uses machine learning to analyze wine based on its chemical properties.
